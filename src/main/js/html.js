@@ -128,6 +128,9 @@
             currentISDState: {}
         };
 
+		// can't have display:none, because it can;t then measure.
+		//rootcontainer.style.display = 'none';
+		rootcontainer.style.top = -1000;
         element.appendChild(rootcontainer);
 
         for (var i in isd.contents) {
@@ -135,7 +138,9 @@
             processElement(context, rootcontainer, isd.contents[i]);
 
         }
+		rootcontainer.style.top = 0;
 
+		//rootcontainer.style.display = 'block';
         return context.currentISDState;
 
     };
@@ -159,11 +164,13 @@
 
         } else if (isd_element.kind === 'p') {
 
-            e = document.createElement("p");
+			e = document.createElement("p");
+			//e.style.display = 'inline-flex';
 
         } else if (isd_element.kind === 'span') {
 
             e = document.createElement("span");
+			//e.style.display = 'inline-flex';
 
             //e.textContent = isd_element.text;
 
@@ -183,11 +190,13 @@
 
         /* override UA default margin */
 
-        e.style.margin = "0";
+        e.style.margin = 0;
 
         /* tranform TTML styles to CSS styles */
 
-        for (var i in STYLING_MAP_DEFS) {
+        var proc_e = e;
+
+		for (var i in STYLING_MAP_DEFS) {
 
             var sm = STYLING_MAP_DEFS[i];
 
@@ -201,29 +210,70 @@
 
         }
 
-        var proc_e = e;
-
-
         // handle multiRowAlign and linePadding
 
         var mra = isd_element.styleAttrs[imscStyles.byName.multiRowAlign.qname];
 
-        if (mra && mra !== "auto") {
+		if (mra && mra !== "auto") {
+			var p = e;
+			//p.style.flexWrap = 'wrap';
+			e = document.createElement("div");
+			e.style.display = 'flex';
+			e.style.flexDirection = 'column';
+			var a = 'center';
+			switch(p.style.textAlign){
+				case 'start':
+				case 'left':
+					a = 'flex-start';
+					break;
+				case 'end':
+				case 'right':
+					a = 'flex-end';
+					break;
+				
+				case 'center':
+					a = 'center';
+					break;
+			}
 
-            var s = document.createElement("span");
+			// set atts onto div as well.
+			for (var _i in STYLING_MAP_DEFS) {
+				var _sm = STYLING_MAP_DEFS[_i];
+				var _attr = isd_element.styleAttrs[_sm.qname];
+				if (_attr !== undefined && _sm.map !== null) {
+					_sm.map(context, e, isd_element, _attr);
+				}
+			}
 
-            s.style.display = "inline-block";
-
-            s.style.textAlign = mra;
-
-            e.appendChild(s);
-
-            proc_e = s;
-
+			e.style.alignItems = a;
+			p.style.textAlign = mra;
+            e.appendChild(p);
+            proc_e = p;
             context.mra = mra;
+		}
 
-        }
 
+
+
+
+		if (0){
+			if (mra && mra !== "auto") {
+
+				var s = document.createElement("span");
+
+				s.style.display = "inline-block";
+
+				s.style.textAlign = mra;
+
+				e.appendChild(s);
+
+				proc_e = s;
+
+				context.mra = mra;
+
+			}
+		}
+		
         var lp = isd_element.styleAttrs[imscStyles.byName.linePadding.qname];
 
         if (lp && lp > 0) {
@@ -237,17 +287,16 @@
         if (isd_element.kind === "span" && isd_element.text) {
 
             if (context.lp || context.mra) {
-
-                for (var j = 0; j < isd_element.text.length; j++) {
-
+				var words = isd_element.text.split(' ');
+                for (var j = 0; j < words.length; j++) {
                     var span = document.createElement("span");
-
-                    span.textContent = isd_element.text.charAt(j);
-
+					var word = words[j];
+					if (j > 0){
+						word = ' '+word;
+					}
+                    span.textContent = word;
                     e.appendChild(span);
-
                 }
-
             } else {
                 e.textContent = isd_element.text;
             }
@@ -272,7 +321,13 @@
 
             /* TODO: linePadding only supported for horizontal scripts */
 
-            processLinePaddingAndMultiRowAlign(elist, context.lp * context.h);
+			
+			// set a margin of the required ammount,
+			// so that things wordwrap at the correct place
+			proc_e.style.margin = (context.lp * context.h)+'px';
+			
+            processLinePaddingAndMultiRowAlign(elist, context.lp * context.h, proc_e.style.direction);
+			proc_e.style.margin = '0px';
 
             /* TODO: clean-up the spans ? */
 
@@ -451,7 +506,7 @@
 
     }
 
-    function processLinePaddingAndMultiRowAlign(elist, lp) {
+    function processLinePaddingAndMultiRowAlign(elist, lp, dir) {
 
         var line_head = null;
 
@@ -459,98 +514,137 @@
 
         var foundBR = false;
 
-        for (var i = 0; i <= elist.length; i++) {
+		var lines = [];
+		var linecount = 0;
+		lines[0] = [];
+		line_head = 0;
+		
+		var headrect = null;
+		
+		// gather each line of spans
+        for (var i = 0; i < elist.length; i++) {
+			if(headrect === null){
+				var rect = elist[i].element.getBoundingClientRect();
+				if (rect.width !== 0){
+					headrect = rect;
+					line_head = i;
+				} else {
+					continue;
+				}
+			}
+			
+			// if we find a br, then start a new line
+			if (elist[i].element.localName === "br"){
+				linecount++;
+				lines[linecount] = [];
+				headrect = null;
+				continue;
+			}
+			
+			var elrect = elist[i].element.getBoundingClientRect();
+			if (elrect.width !== 0){
+				var sameline= isSameLine(elrect.top,
+							elrect.height,
+							headrect.top,
+							headrect.height);
+				if (sameline){
+						elist[i].elrect = elrect;
+						lines[linecount].push(elist[i]);
+				} else {
+					// not same line
+					linecount++;
+					lines[linecount] = [];
+					elist[i].elrect = elrect;
+					lines[linecount].push(elist[i]);
+					headrect = elrect;
+					line_head = i;
 
-            /* skip <br> since they apparently have a different box top than
-             * the rest of the line 
-             */
+					var br = document.createElement("br");
 
-            if (i !== elist.length && elist[i].element.localName === "br") {
-                foundBR = true;
-                continue;
-            }
+					elist[i].element.parentElement.insertBefore(br, elist[i].element);
 
-            /* detect new line */
+					/* if we inserted a break, then strip off the space from the end */
+					if (elist[i].element.textContent.startsWith(' ')){
+						elist[i].element.textContent = elist[i].element.textContent.slice(1);
+					}
+				}
+			}
+		}
 
-            if (line_head === null ||
-                i === elist.length ||
-                (!isSameLine(elist[i].element.getBoundingClientRect().top,
-                    elist[i].element.getBoundingClientRect().height,
-                    elist[line_head].element.getBoundingClientRect().top,
-                    elist[line_head].element.getBoundingClientRect().height))
-                ) {
+		var leftel = [];
+		var rightel = [];
 
-                /* apply right padding to previous line (if applicable and unless this is the first line) */
+		var related = [];
+		var countrelated = -1;
+		var lastparent = null;
+		
+		for (i = 0; i < lines.length; i++){
+			var line = lines[i];
+			var maxX = 0;
+			var minX = 10000;
+			countrelated++;
+			related[countrelated] = [];
+			
+			if (line.length > 0){
+				lastparent = line[0].element.parentElement;
+			}
+			
+			for (var j = 0; j < line.length; j++){
+				if (line[j].elrect){
+					if (minX > line[j].elrect.left){
+						minX = line[j].elrect.left;
+						leftel[i] = line[j];
+					}
+					if (maxX < line[j].elrect.left+line[j].elrect.width){
+						maxX = line[j].elrect.left+line[j].elrect.width;
+						rightel[i] = line[j];
+					}
+				}
+				line[j].element.style.whiteSpace = 'nowrap';
+				if (line[j].element.parentElement === lastparent){
+					related[countrelated].push(line[j]);
+				} else {
+					countrelated++;
+					related[countrelated] = [];
+					related[countrelated].push(line[j]);
+					lastparent = line[j].element.parentElement;
+				}
+			}
+		}
+	
+		for (i = 0; i < leftel.length; i++){
+			if (leftel[i]){
+                addLeftPadding(leftel[i].element, leftel[i].color, lp);
+			}
+		}
 
-                if (lp && (!lookingForHead)) {
+		for (i = 0; i < rightel.length; i++){
+			if (rightel[i]){
+                addRightPadding(rightel[i].element, rightel[i].color, lp);
+			}
+		}
 
-                    for (; --i >= 0; ) {
+		for (i = 0; i < related.length; i++){
+			var grp = related[i];
+			if (grp.length){
+				var span = document.createElement("span");
+				grp[0].element.parentElement.insertBefore(span, grp[0].element);
+				var text = '';
+				var parent = grp[0].element.parentElement;
+				for (var g = 0; g < grp.length; g++){
+					text = text + grp[g].element.textContent;
+					if (grp[g].element.style.paddingRight){
+						span.style.paddingRight = grp[g].element.style.paddingRight;
+					}
+					if (grp[g].element.style.paddingLeft){
+						span.style.paddingLeft = grp[g].element.style.paddingLeft;
+					}
+					parent.removeChild(grp[g].element);
+				}
+				span.textContent = text;
+			}
+		}
 
-                        if (elist[i].element.getBoundingClientRect().width !== 0) {
-
-                            addRightPadding(elist[i].element, elist[i].color, lp);
-
-                            if (elist[i].element.getBoundingClientRect().width !== 0 &&
-                                isSameLine(elist[i].element.getBoundingClientRect().top,
-                                    elist[i].element.getBoundingClientRect().height,
-                                    elist[line_head].element.getBoundingClientRect().top,
-                                    elist[line_head].element.getBoundingClientRect().height))
-                                break;
-
-                            removeRightPadding(elist[i].element);
-
-                        }
-
-                    }
-
-                    lookingForHead = true;
-
-                    continue;
-
-                }
-
-                /* explicit <br> unless already present */
-
-                if (i !== elist.length && line_head !== null && (!foundBR)) {
-
-                    var br = document.createElement("br");
-
-                    elist[i].element.parentElement.insertBefore(br, elist[i].element);
-
-                    elist.splice(i, 0, {"element": br});
-
-                    foundBR = true;
-
-                    continue;
-
-                }
-
-                /* apply left padding to current line (if applicable) */
-
-                if (i !== elist.length && lp) {
-
-                    /* find first non-zero */
-
-                    for (; i < elist.length; i++) {
-
-                        if (elist[i].element.getBoundingClientRect().width !== 0) {
-                            addLeftPadding(elist[i].element, elist[i].color, lp);
-                            break;
-                        }
-
-                    }
-
-                }
-
-                lookingForHead = false;
-
-                foundBR = false;
-
-                line_head = i;
-
-            }
-
-        }
 
     }
 
@@ -567,6 +661,9 @@
 
     function removeRightPadding(e) {
         e.style.paddingRight = null;
+    }
+    function removeLeftPadding(e) {
+        e.style.paddingLeft = null;
     }
 
 
@@ -843,13 +940,25 @@
 
                 } else {
 
-                    dom_element.style.textShadow = "rgba(" +
+					var color = "rgba(" +
                         attr.color[0].toString() + "," +
                         attr.color[1].toString() + "," +
                         attr.color[2].toString() + "," +
                         (attr.color[3] / 255).toString() +
-                        ")" + " 0px 0px " +
-                        (attr.thickness * context.h) + "px";
+                        ")";
+//                    dom_element.style.textShadow = color + " 0px 0px " +
+//                        (attr.thickness * context.h) + "px";
+					var px = (attr.thickness * context.h);
+
+                    dom_element.style.textShadow = 
+						color + " "+px+"px "+px+"px " +px/3+"px," +
+						color + " -"+px+"px -"+px+"px " +px/3+"px," +
+						color + " -"+px+"px "+px+"px " +px/3+"px," +
+						color + " "+px+"px -"+px+"px " +px/3+"px," +
+						color + " "+px+"px 0px " +px/3+"px," +
+						color + " -"+px+"px 0px " +px/3+"px," +
+						color + " 0px "+px+"px " +px/3+"px," +
+						color + " 0px -"+px+"px " +px/3+"px";
 
                 }
             }
