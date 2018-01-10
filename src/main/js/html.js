@@ -153,26 +153,31 @@
 
             e = document.createElement("div");
             e.style.position = "absolute";
+			e.style.display = 'flex';
+			e.style.flexDirection = 'column';
 
         } else if (isd_element.kind === 'body') {
 
             e = document.createElement("div");
+			e.style.display = 'flex';
+			e.style.flexDirection = 'column';
 
         } else if (isd_element.kind === 'div') {
 
             e = document.createElement("div");
+			e.style.display = 'flex';
+			e.style.flexDirection = 'column';
 
         } else if (isd_element.kind === 'p') {
 
 			e = document.createElement("p");
-			//e.style.display = 'inline-flex';
+			e.style.whiteSpace = 'wrap';
 
         } else if (isd_element.kind === 'span') {
 
             e = document.createElement("span");
-			//e.style.display = 'inline-flex';
-
-            //e.textContent = isd_element.text;
+			e.style.display = 'inline-flex';
+			e.style.whiteSpace = 'pre';
 
         } else if (isd_element.kind === 'br') {
 
@@ -210,110 +215,139 @@
 
         }
 
-        // handle multiRowAlign and linePadding
+        // handle multiRowAlign and linePadding - only apply to p
+		if (isd_element.kind === 'p'){
+			var mra = isd_element.styleAttrs[imscStyles.byName.multiRowAlign.qname];
 
-        var mra = isd_element.styleAttrs[imscStyles.byName.multiRowAlign.qname];
-
-		if (mra && mra !== "auto") {
-			var p = e;
-			//p.style.flexWrap = 'wrap';
-			e = document.createElement("div");
 			e.style.display = 'flex';
-			e.style.flexDirection = 'column';
-			var a = 'center';
-			switch(p.style.textAlign){
-				case 'start':
-				case 'left':
-					a = 'flex-start';
-					break;
-				case 'end':
-				case 'right':
-					a = 'flex-end';
-					break;
-				
-				case 'center':
-					a = 'center';
-					break;
-			}
+			e.style.flexDirection = 'row'; 
 
-			// set atts onto div as well.
-			for (var _i in STYLING_MAP_DEFS) {
-				var _sm = STYLING_MAP_DEFS[_i];
-				var _attr = isd_element.styleAttrs[_sm.qname];
-				if (_attr !== undefined && _sm.map !== null) {
-					_sm.map(context, e, isd_element, _attr);
-				}
-			}
-
-			e.style.alignItems = a;
-			p.style.textAlign = mra;
-            e.appendChild(p);
-            proc_e = p;
-            context.mra = mra;
-		}
-
-
-
-
-
-		if (0){
 			if (mra && mra !== "auto") {
+				var p = e;
+				//p.style.flexWrap = 'wrap';
+				e = document.createElement("div");
+				e.style.display = 'flex';
+				e.style.flexDirection = 'column';
+				var a = 'center';
+				switch(p.style.textAlign){
+					case 'start':
+					case 'left':
+						a = 'flex-start';
+						break;
+					case 'end':
+					case 'right':
+						a = 'flex-end';
+						break;
 
-				var s = document.createElement("span");
+					case 'center':
+						a = 'center';
+						break;
+				}
+				p.style.justifyContent = a;
 
-				s.style.display = "inline-block";
+				// set atts onto div as well.
+				for (var _i in STYLING_MAP_DEFS) {
+					var _sm = STYLING_MAP_DEFS[_i];
+					var _attr = isd_element.styleAttrs[_sm.qname];
+					if (_attr !== undefined && _sm.map !== null) {
+						_sm.map(context, e, isd_element, _attr);
+					}
+				}
 
-				s.style.textAlign = mra;
-
-				e.appendChild(s);
-
-				proc_e = s;
-
+				e.style.alignItems = a;
+				p.style.textAlign = mra;
+				e.appendChild(p);
+				proc_e = p;
 				context.mra = mra;
+			}
 
+			var lp = isd_element.styleAttrs[imscStyles.byName.linePadding.qname];
+
+			if (lp && lp > 0) {
+				context.lp = lp;
 			}
 		}
-		
-        var lp = isd_element.styleAttrs[imscStyles.byName.linePadding.qname];
-
-        if (lp && lp > 0) {
-
-            context.lp = lp;
-
-        }
 
         // wrap characters in spans to find the line wrap locations
-
         if (isd_element.kind === "span" && isd_element.text) {
 
-            if (context.lp || context.mra) {
-				var words = isd_element.text.split(' ');
-                for (var j = 0; j < words.length; j++) {
-                    var span = document.createElement("span");
-					var word = words[j];
-					if (j > 0){
-						word = ' '+word;
-					}
-                    span.textContent = word;
-                    e.appendChild(span);
-                }
-            } else {
-                e.textContent = isd_element.text;
-            }
-        }
+			var wrap = isd_element.styleAttrs[imscStyles.byName.wrapOption.qname];
 
+			if (wrap === 'wrap'){
+				var texts = [isd_element.text];
+				if (isd_element.space === 'preserve'){
+					texts = isd_element.text.split('\n');
+				}
+
+				for (var t = 0; t < texts.length; t++){
+					var words = texts[t].split(' ');
+					var lastspan = null;
+					var leadingspaces = 0;
+					var spacestring = '';
+					var span = null;
+					var spaces;
+					for (var j = 0; j < words.length; j++) {
+						var word = words[j];
+						if (word.length){
+							spacestring = '';
+							span = document.createElement("span");
+							span.style.display = 'inline-flex';	
+							span.style.whiteSpace = 'pre';
+							for (spaces = 0; spaces < leadingspaces; spaces++){
+								spacestring = spacestring + ' ';
+							}
+
+							if (j > 0){
+								spacestring = spacestring + ' ';
+							}
+
+							word = spacestring+word;
+							span.textContent = word;
+							e.appendChild(span);
+							leadingspaces = 0;
+						} else {
+							// if the last word is followed by spaces
+							if (j > 0)
+								leadingspaces++;
+							if (j === words.length - 1){
+								spacestring = '';
+								for (spaces = 0; spaces < leadingspaces; spaces++){
+									spacestring = spacestring + ' ';
+								}
+								// add them as a new span
+								span = document.createElement("span");
+								span.style.display = 'inline-flex';
+								span.textContent = spacestring;
+								span.style.whiteSpace = 'pre';
+								e.appendChild(span);
+								leadingspaces = 0;
+							}
+						}
+					}
+					
+					// if not the last, then need to insert a br
+					if (t < texts.length - 1){
+			            var _br = document.createElement("br");
+						e.appendChild(_br);
+					}
+				}
+			} else {
+				// no need to split up as it's not to be wrapped
+                e.textContent = isd_element.text;
+			}
+        }
 
         dom_parent.appendChild(e);
 
+
+		// this processes all children of our element
         for (var k in isd_element.contents) {
-
             processElement(context, proc_e, isd_element.contents[k]);
-
         }
 
         // handle linePadding and multiRowAlign
 
-        if ((context.lp || context.mra) && isd_element.kind === "p") {
+        if (isd_element.kind === "p") {
 
             var elist = [];
 
@@ -321,13 +355,14 @@
 
             /* TODO: linePadding only supported for horizontal scripts */
 
+			var lppix = (context.lp)? (context.lp * context.h) : 0;
 			
 			// set a margin of the required ammount,
 			// so that things wordwrap at the correct place
-			proc_e.style.margin = (context.lp * context.h)+'px';
+			//proc_e.style.margin = lppix+'px';
 			
-            processLinePaddingAndMultiRowAlign(elist, context.lp * context.h, proc_e.style.direction);
-			proc_e.style.margin = '0px';
+            processLinePaddingAndMultiRowAlign(elist, lppix, proc_e);
+			//proc_e.style.margin = '0px';
 
             /* TODO: clean-up the spans ? */
 
@@ -335,7 +370,6 @@
                 delete context.lp;
             if (context.mra)
                 delete context.mra;
-
         }
 
         /* region processing */
@@ -506,8 +540,29 @@
 
     }
 
-    function processLinePaddingAndMultiRowAlign(elist, lp, dir) {
+    function processLinePaddingAndMultiRowAlign(elist, lp, el) {
 
+
+		dir = el.style.direction;
+		
+		var a = 'center';
+		switch(el.style.textAlign){
+			case 'start':
+			case 'left':
+				a = 'flex-start';
+				break;
+			case 'end':
+			case 'right':
+				a = 'flex-end';
+				break;
+
+			case 'center':
+				a = 'center';
+				break;
+		}
+		el.style.justifyContent = a;
+		//el.style.justifyContent = el.style.textAlign;
+		
         var line_head = null;
 
         var lookingForHead = true;
@@ -521,8 +576,196 @@
 		
 		var headrect = null;
 		
+		var isSpacePreseve = ((el.style.whiteSpace === 'pre') || (el.style.whiteSpace === 'pre-wrap'));
+		
+		el.style.whiteSpace = 'pre';
+		
+		// find the *available* width - the nearest width style; we know we have one
+		var wparent = el;
+		while (wparent && !wparent.style.width){
+			wparent = wparent.parentElement;
+		}
+		
+		var maxwidth = 1024;
+		if (wparent){
+			console.log("parent width" + wparent.style.width);
+			maxwidth = parseFloat(wparent.style.width);
+		} else {
+			console.log("no width on parent");
+		}
+		
+		
+		// gather spans between <br/>
+		
 		// gather each line of spans
+		var brlines = [];
+		var brelements = [];
+		var brlinecount = 0;
+		brlines[brlinecount] = [];
+		var linesize = [];
+		linesize[brlinecount] = 0;
+		
         for (var i = 0; i < elist.length; i++) {
+			// if we find a br, then start a new line
+			if (elist[i].element.localName === "br"){
+				brlinecount++;
+				brlines[brlinecount] = [];
+				linesize[brlinecount] = 0;
+			} else {
+				if ((elist[i].element.localName === "span") && (elist[i].element.children.length === 0)){
+					if (linesize[brlinecount] + elist[i].element.offsetWidth > maxwidth-(2*lp)){
+						brlinecount++;
+						brlines[brlinecount] = [];
+						linesize[brlinecount] = 0;
+						
+						// take space off front, only if no space preserve
+						if (!isSpacePreseve){
+						    if (elist[i].element.childNodes.length){
+							     var t = elist[i].element.childNodes[0].data;
+                                if (t){
+                                    t = t.slice(1);
+                                    elist[i].element.childNodes[0].data = t;
+                                }
+						    }
+						}					}
+					linesize[brlinecount] += elist[i].element.offsetWidth;
+				}
+				
+				brlines[brlinecount].push(elist[i]);
+
+				if (elist[i].element.id != '')
+    				elist[i].element.id = elist[i].element.id + 'x';
+				elist[i].element.id = elist[i].element.id + brlinecount;
+			}
+		}
+		// if we had a last line without a br
+		if (brlines[brlinecount].length)
+			brlinecount++;
+
+		
+		
+		var stripline = function(el, line){
+			// this will only be set of leaves
+			var len;
+			var i;
+
+			len = el.children.length;
+			for (i = len-1; i >= 0; i--){
+				var e = el.children[i];
+				e.style.whiteSpace = 'pre';
+
+				if (0){
+				switch (e.style.whitespace){
+					case 'pre-wrap':
+						break;
+					case 'pre':
+						break;
+					case 'normal':
+						e.style.whiteSpace = 'nowrap';
+						break;
+					case '':
+					case undefined:
+					case 'noWrap':
+						// no change
+						break;
+						
+				}
+				}
+				
+				
+				if (e.localName === 'br'){
+					// lsoe brs
+					el.removeChild(e);
+				} else {
+					// strip from children
+					stripline(e, line);
+					// lose empty nodes
+					if (e.children.length === 0){
+						if (e.textContent.length === 0){
+						    el.removeChild(e);
+						}
+					}
+
+					// check this child is our  line
+					if (e.id.length){
+						if (e.id.indexOf('x') >= 0){
+							// on more than one line
+						} else {
+							if (e.id != line){
+							   el.removeChild(e);
+							}
+						}
+					}
+				}
+			}
+		};
+
+
+		// find leftmost and rightmost elements, and add padding
+		var ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
+		var getendelements = function(el){
+			var len;
+			var i;
+
+			len = el.children.length;
+			for (i = len-1; i >= 0; i--){
+				// only process leaves
+				var e = el.children[i];
+				if (e.children.length === 0){
+					var elrect = e.getBoundingClientRect();
+					if (ends.leftx > elrect.left){
+						ends.leftx = elrect.left;
+						ends.leftel = el.children[i];
+					}
+					if (ends.rightx < elrect.left+elrect.width){
+						ends.rightx = elrect.left+elrect.width;
+						ends.rightel = el.children[i];
+					}
+				}
+				getendelements(el.children[i]);
+			}
+		};
+
+		
+        var mradiv = document.createElement("div");
+		mradiv.id = 'multiRowAlignDiv';
+		mradiv.style.display = 'flex'; 
+		mradiv.style.flexDirection = 'column';
+		el.parentElement.insertBefore(mradiv, el);
+		
+		// for each brline, get the spans in presentation order, and allocate to lines
+		for (i = 0; i < brlinecount; i++){
+			// create a new 'line' - a complete clone of this p
+			var p = el.cloneNode(true);
+			p.style.whiteSpace = 'nowrap';
+			p.class = 'brline'+i;
+
+			// strip out anything not in this line
+			stripline(p, i);
+
+			// add this new line
+			mradiv.appendChild(p);
+
+			// add padding to the first and only child of the new p
+			if (lp){
+				ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
+				getendelements(p);
+				if (ends.leftel){
+					ends.leftel.style.paddingLeft = lp+'px';
+				}
+				if (ends.rightel){
+					ends.rightel.style.paddingRight = lp+'px';
+				}
+			}
+		}
+		
+		// remove ourselves
+		el.parentElement.removeChild(el);
+		
+
+		if (0){
+		// gather each line of spans
+        for (i = 0; i < elist.length; i++) {
 			if(headrect === null){
 				var rect = elist[i].element.getBoundingClientRect();
 				if (rect.width !== 0){
@@ -628,6 +871,8 @@
 			var grp = related[i];
 			if (grp.length){
 				var span = document.createElement("span");
+				span.style.display = 'inline-flex';
+				span.style.whiteSpace = 'pre';
 				grp[0].element.parentElement.insertBefore(span, grp[0].element);
 				var text = '';
 				var parent = grp[0].element.parentElement;
@@ -646,6 +891,8 @@
 		}
 
 
+
+		}
     }
 
     function addLeftPadding(e, c, lp) {
