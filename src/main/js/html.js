@@ -83,10 +83,13 @@
                                 ) {
 
 		// if alternative dom document functions wanted, use it
-		if (dom_document)
+		if (dom_document){
 			imscHTML.document = dom_document;
-		else
+			imscHTML.Node = dom_document.Node;
+		} else {
 			imscHTML.document = document;
+			imscHTML.Node = Node;
+		}
 		
         /* maintain aspect ratio if specified */
         var height = eheight || element.clientHeight;
@@ -449,7 +452,7 @@
 
             var nchild = child.nextSibling;
 
-            if (child.nodeType === Node.ELEMENT_NODE &&
+            if (child.nodeType === imscHTML.Node.ELEMENT_NODE &&
                 child.localName === 'span') {
 
                 pruneEmptySpans(child);
@@ -484,7 +487,7 @@
 
             while (child) {
 
-                if (child.nodeType === Node.ELEMENT_NODE) {
+                if (child.nodeType === imscHTML.Node.ELEMENT_NODE) {
 
                     constructElementList(child, elist, newbgcolor);
 
@@ -534,7 +537,7 @@
 
             while (child) {
 
-                if (child.nodeType === Node.ELEMENT_NODE) {
+                if (child.nodeType === imscHTML.Node.ELEMENT_NODE) {
 
                     constructLineList(child, llist);
 
