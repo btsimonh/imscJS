@@ -741,6 +741,33 @@
 			}
 		};
 
+
+		var combinespans = function(el){
+			// if it's a span
+			if (el.localName === 'span'){
+				// only interested if more than one
+				if (el.children.length > 1){
+					if (el.children[0].childNodes.length > 0){
+						// only interested if text content
+						if (el.children[0].childNodes[0].data && el.children[0].childNodes[0].data.length){
+							// we know that the only nodes with text are all the same style
+							var text = '';
+							for (var i = 0; i < el.children.length; i++){
+								text = text + el.children[i].childNodes[0].data; // spaces already included
+							}
+							el.children[0].childNodes[0].data = text;
+							for (i = el.children.length-1; i > 0 ; i--){
+								el.removeChild(el.children[i]);
+							}
+						}
+					}
+				}
+			}
+			for(var c = 0; c < el.children.length; c++){
+				combinespans(el.children[c]);
+			}
+		};
+
 		
         var mradiv = imscHTML.document.createElement("div");
 		mradiv.id = 'multiRowAlignDiv';
@@ -757,6 +784,10 @@
 
 			// strip out anything not in this line
 			stripline(p, i);
+
+			// add words back together
+			combinespans(p);
+
 
 			// add this new line
 			mradiv.appendChild(p);
