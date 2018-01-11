@@ -555,6 +555,113 @@
 
     }
 
+	function stripline(el, line){
+		// this will only be set of leaves
+		var len;
+		var i;
+
+		len = el.children.length;
+		for (i = len-1; i >= 0; i--){
+			var e = el.children[i];
+			e.style.whiteSpace = 'pre';
+
+			if (0){
+			switch (e.style.whitespace){
+				case 'pre-wrap':
+					break;
+				case 'pre':
+					break;
+				case 'normal':
+					e.style.whiteSpace = 'nowrap';
+					break;
+				case '':
+				case undefined:
+				case 'noWrap':
+					// no change
+					break;
+
+			}
+			}
+
+
+			if (e.localName === 'br'){
+				// lose brs
+				el.removeChild(e);
+			} else {
+				// strip from children
+				stripline(e, line);
+				// lose empty nodes
+				if (e.children.length === 0){
+					if (e.textContent.length === 0){
+						el.removeChild(e);
+					}
+				}
+
+				// check this child is our  line
+				if (e.id.length){
+					if (e.id.indexOf('x') >= 0){
+						// on more than one line
+					} else {
+						if (e.id != line){
+						   el.removeChild(e);
+						}
+					}
+				}
+			}
+		}
+	};
+
+	function getendelements(el, ends){
+		var len;
+		var i;
+
+		len = el.children.length;
+		for (i = len-1; i >= 0; i--){
+			// only process leaves
+			var e = el.children[i];
+			if (e.children.length === 0){
+				var elrect = e.getBoundingClientRect();
+				if (ends.leftx > elrect.left){
+					ends.leftx = elrect.left;
+					ends.leftel = el.children[i];
+				}
+				if (ends.rightx < elrect.left+elrect.width){
+					ends.rightx = elrect.left+elrect.width;
+					ends.rightel = el.children[i];
+				}
+			}
+			getendelements(el.children[i], ends);
+		}
+	};
+
+
+	function combinespans(el){
+		// if it's a span
+		if (el.localName === 'span'){
+			// only interested if more than one
+			if (el.children.length > 1){
+				if (el.children[0].childNodes.length > 0){
+					// only interested if text content
+					if (el.children[0].childNodes[0].data && el.children[0].childNodes[0].data.length){
+						// we know that the only nodes with text are all the same style
+						var text = '';
+						for (var i = 0; i < el.children.length; i++){
+							text = text + el.children[i].childNodes[0].data; // spaces already included
+						}
+						el.children[0].childNodes[0].data = text;
+						for (i = el.children.length-1; i > 0 ; i--){
+							el.removeChild(el.children[i]);
+						}
+					}
+				}
+			}
+		}
+		for(var c = 0; c < el.children.length; c++){
+			combinespans(el.children[c]);
+		}
+	};
+
+
     function processLinePaddingAndMultiRowAlign(elist, lp, el) {
 
 
@@ -659,114 +766,10 @@
 
 		
 		
-		var stripline = function(el, line){
-			// this will only be set of leaves
-			var len;
-			var i;
-
-			len = el.children.length;
-			for (i = len-1; i >= 0; i--){
-				var e = el.children[i];
-				e.style.whiteSpace = 'pre';
-
-				if (0){
-				switch (e.style.whitespace){
-					case 'pre-wrap':
-						break;
-					case 'pre':
-						break;
-					case 'normal':
-						e.style.whiteSpace = 'nowrap';
-						break;
-					case '':
-					case undefined:
-					case 'noWrap':
-						// no change
-						break;
-						
-				}
-				}
-				
-				
-				if (e.localName === 'br'){
-					// lose brs
-					el.removeChild(e);
-				} else {
-					// strip from children
-					stripline(e, line);
-					// lose empty nodes
-					if (e.children.length === 0){
-						if (e.textContent.length === 0){
-						    el.removeChild(e);
-						}
-					}
-
-					// check this child is our  line
-					if (e.id.length){
-						if (e.id.indexOf('x') >= 0){
-							// on more than one line
-						} else {
-							if (e.id != line){
-							   el.removeChild(e);
-							}
-						}
-					}
-				}
-			}
-		};
 
 
 		// find leftmost and rightmost elements, and add padding
 		var ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
-		var getendelements = function(el){
-			var len;
-			var i;
-
-			len = el.children.length;
-			for (i = len-1; i >= 0; i--){
-				// only process leaves
-				var e = el.children[i];
-				if (e.children.length === 0){
-					var elrect = e.getBoundingClientRect();
-					if (ends.leftx > elrect.left){
-						ends.leftx = elrect.left;
-						ends.leftel = el.children[i];
-					}
-					if (ends.rightx < elrect.left+elrect.width){
-						ends.rightx = elrect.left+elrect.width;
-						ends.rightel = el.children[i];
-					}
-				}
-				getendelements(el.children[i]);
-			}
-		};
-
-
-		var combinespans = function(el){
-			// if it's a span
-			if (el.localName === 'span'){
-				// only interested if more than one
-				if (el.children.length > 1){
-					if (el.children[0].childNodes.length > 0){
-						// only interested if text content
-						if (el.children[0].childNodes[0].data && el.children[0].childNodes[0].data.length){
-							// we know that the only nodes with text are all the same style
-							var text = '';
-							for (var i = 0; i < el.children.length; i++){
-								text = text + el.children[i].childNodes[0].data; // spaces already included
-							}
-							el.children[0].childNodes[0].data = text;
-							for (i = el.children.length-1; i > 0 ; i--){
-								el.removeChild(el.children[i]);
-							}
-						}
-					}
-				}
-			}
-			for(var c = 0; c < el.children.length; c++){
-				combinespans(el.children[c]);
-			}
-		};
 
 		
         var mradiv = imscHTML.document.createElement("div");
@@ -795,7 +798,7 @@
 			// add padding to the first and only child of the new p
 			if (lp){
 				ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
-				getendelements(p);
+				getendelements(p, ends);
 				if (ends.leftel){
 					ends.leftel.style.paddingLeft = lp+'px';
 				}
@@ -940,25 +943,6 @@
 
 		}
     }
-
-    function addLeftPadding(e, c, lp) {
-        e.style.paddingLeft = lp + "px";
-        e.style.backgroundColor = c;
-    }
-
-    function addRightPadding(e, c, lp) {
-        e.style.paddingRight = lp + "px";
-        e.style.backgroundColor = c;
-
-    }
-
-    function removeRightPadding(e) {
-        e.style.paddingRight = null;
-    }
-    function removeLeftPadding(e) {
-        e.style.paddingLeft = null;
-    }
-
 
     function HTMLStylingMapDefintion(qName, mapFunc) {
         this.qname = qName;
