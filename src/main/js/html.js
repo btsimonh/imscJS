@@ -444,31 +444,6 @@
 
     }
 
-    function pruneEmptySpans(element) {
-
-        var child = element.firstChild;
-
-        while (child) {
-
-            var nchild = child.nextSibling;
-
-            if (child.nodeType === imscHTML.Node.ELEMENT_NODE &&
-                child.localName === 'span') {
-
-                pruneEmptySpans(child);
-
-                if (child.childElementCount === 0 &&
-                    child.textContent.length === 0) {
-
-                    element.removeChild(child);
-
-                }
-            }
-
-            child = nchild;
-        }
-
-    }
 
     function constructElementList(element, elist, bgcolor) {
 
@@ -611,6 +586,8 @@
 		}
 	};
 
+
+	// TODO: when no dom is present, we don't have positions yet
 	function getendelements(el, ends){
 		var len;
 		var i;
@@ -664,9 +641,9 @@
 
     function processLinePaddingAndMultiRowAlign(elist, lp, el) {
 
-
 		dir = el.style.direction;
-		
+
+		// TODO - check direction
 		var a = 'center';
 		switch(el.style.textAlign){
 			case 'start':
@@ -685,18 +662,6 @@
 		el.style.justifyContent = a;
 		//el.style.justifyContent = el.style.textAlign;
 		
-        var line_head = null;
-
-        var lookingForHead = true;
-
-        var foundBR = false;
-
-		var lines = [];
-		var linecount = 0;
-		lines[0] = [];
-		line_head = 0;
-		
-		var headrect = null;
 		
 		var isSpacePreseve = ((el.style.whiteSpace === 'pre') || (el.style.whiteSpace === 'pre-wrap'));
 		
@@ -715,7 +680,6 @@
 		} else {
 			console.log("no width on parent");
 		}
-		
 		
 		// gather spans between <br/>
 		
@@ -765,13 +729,6 @@
 			brlinecount++;
 
 		
-		
-
-
-		// find leftmost and rightmost elements, and add padding
-		var ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
-
-		
         var mradiv = imscHTML.document.createElement("div");
 		mradiv.id = 'multiRowAlignDiv';
 		mradiv.style.display = 'flex'; 
@@ -791,13 +748,13 @@
 			// add words back together
 			combinespans(p);
 
-
 			// add this new line
 			mradiv.appendChild(p);
 
 			// add padding to the first and only child of the new p
 			if (lp){
-				ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
+				// find leftmost and rightmost elements, and add padding
+				var ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
 				getendelements(p, ends);
 				if (ends.leftel){
 					ends.leftel.style.paddingLeft = lp+'px';
@@ -810,139 +767,8 @@
 		
 		// remove ourselves
 		el.parentElement.removeChild(el);
-		
-
-		if (0){
-		// gather each line of spans
-        for (i = 0; i < elist.length; i++) {
-			if(headrect === null){
-				var rect = elist[i].element.getBoundingClientRect();
-				if (rect.width !== 0){
-					headrect = rect;
-					line_head = i;
-				} else {
-					continue;
-				}
-			}
-			
-			// if we find a br, then start a new line
-			if (elist[i].element.localName === "br"){
-				linecount++;
-				lines[linecount] = [];
-				headrect = null;
-				continue;
-			}
-			
-			var elrect = elist[i].element.getBoundingClientRect();
-			if (elrect.width !== 0){
-				var sameline= isSameLine(elrect.top,
-							elrect.height,
-							headrect.top,
-							headrect.height);
-				if (sameline){
-						elist[i].elrect = elrect;
-						lines[linecount].push(elist[i]);
-				} else {
-					// not same line
-					linecount++;
-					lines[linecount] = [];
-					elist[i].elrect = elrect;
-					lines[linecount].push(elist[i]);
-					headrect = elrect;
-					line_head = i;
-
-					var br = imscHTML.document.createElement("br");
-
-					elist[i].element.parentElement.insertBefore(br, elist[i].element);
-
-					/* if we inserted a break, then strip off the space from the end */
-					if (elist[i].element.textContent.startsWith(' ')){
-						elist[i].element.textContent = elist[i].element.textContent.slice(1);
-					}
-				}
-			}
-		}
-
-		var leftel = [];
-		var rightel = [];
-
-		var related = [];
-		var countrelated = -1;
-		var lastparent = null;
-		
-		for (i = 0; i < lines.length; i++){
-			var line = lines[i];
-			var maxX = 0;
-			var minX = 10000;
-			countrelated++;
-			related[countrelated] = [];
-			
-			if (line.length > 0){
-				lastparent = line[0].element.parentElement;
-			}
-			
-			for (var j = 0; j < line.length; j++){
-				if (line[j].elrect){
-					if (minX > line[j].elrect.left){
-						minX = line[j].elrect.left;
-						leftel[i] = line[j];
-					}
-					if (maxX < line[j].elrect.left+line[j].elrect.width){
-						maxX = line[j].elrect.left+line[j].elrect.width;
-						rightel[i] = line[j];
-					}
-				}
-				line[j].element.style.whiteSpace = 'nowrap';
-				if (line[j].element.parentElement === lastparent){
-					related[countrelated].push(line[j]);
-				} else {
-					countrelated++;
-					related[countrelated] = [];
-					related[countrelated].push(line[j]);
-					lastparent = line[j].element.parentElement;
-				}
-			}
-		}
-	
-		for (i = 0; i < leftel.length; i++){
-			if (leftel[i]){
-                addLeftPadding(leftel[i].element, leftel[i].color, lp);
-			}
-		}
-
-		for (i = 0; i < rightel.length; i++){
-			if (rightel[i]){
-                addRightPadding(rightel[i].element, rightel[i].color, lp);
-			}
-		}
-
-		for (i = 0; i < related.length; i++){
-			var grp = related[i];
-			if (grp.length){
-				var span = imscHTML.document.createElement("span");
-				span.style.display = 'inline-flex';
-				span.style.whiteSpace = 'pre';
-				grp[0].element.parentElement.insertBefore(span, grp[0].element);
-				var text = '';
-				var parent = grp[0].element.parentElement;
-				for (var g = 0; g < grp.length; g++){
-					text = text + grp[g].element.textContent;
-					if (grp[g].element.style.paddingRight){
-						span.style.paddingRight = grp[g].element.style.paddingRight;
-					}
-					if (grp[g].element.style.paddingLeft){
-						span.style.paddingLeft = grp[g].element.style.paddingLeft;
-					}
-					parent.removeChild(grp[g].element);
-				}
-				span.textContent = text;
-			}
-		}
-
-
-
-		}
     }
+	
 
     function HTMLStylingMapDefintion(qName, mapFunc) {
         this.qname = qName;
