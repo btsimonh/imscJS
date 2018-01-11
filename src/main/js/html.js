@@ -78,11 +78,17 @@
                                     displayForcedOnlyMode,
                                     errorHandler,
                                     previousISDState,
-                                    enableRollUp
+                                    enableRollUp,
+									dom_document
                                 ) {
 
+		// if alternative dom document functions wanted, use it
+		if (dom_document)
+			imscHTML.document = dom_document;
+		else
+			imscHTML.document = document;
+		
         /* maintain aspect ratio if specified */
-
         var height = eheight || element.clientHeight;
         var width = ewidth || element.clientWidth;
 
@@ -102,12 +108,12 @@
 
         }
 
-        var rootcontainer = document.createElement("div");
+        var rootcontainer = imscHTML.document.createElement("div");
 
         rootcontainer.style.position = "relative";
         rootcontainer.style.width = width + "px";
         rootcontainer.style.height = height + "px";
-        rootcontainer.style.margin = "auto";
+        rootcontainer.style.margin = 0;
         rootcontainer.style.top = 0;
         rootcontainer.style.bottom = 0;
         rootcontainer.style.left = 0;
@@ -151,37 +157,41 @@
 
         if (isd_element.kind === 'region') {
 
-            e = document.createElement("div");
+            e = imscHTML.document.createElement("div");
             e.style.position = "absolute";
 			e.style.display = 'flex';
 			e.style.flexDirection = 'column';
+			e.style.alignItems = 'stretch';
+			
 
         } else if (isd_element.kind === 'body') {
 
-            e = document.createElement("div");
+            e = imscHTML.document.createElement("div");
 			e.style.display = 'flex';
 			e.style.flexDirection = 'column';
+			e.style.alignItems = 'stretch';
 
         } else if (isd_element.kind === 'div') {
 
-            e = document.createElement("div");
+            e = imscHTML.document.createElement("div");
 			e.style.display = 'flex';
 			e.style.flexDirection = 'column';
 
         } else if (isd_element.kind === 'p') {
 
-			e = document.createElement("p");
+			e = imscHTML.document.createElement("p");
 			e.style.whiteSpace = 'wrap';
 
         } else if (isd_element.kind === 'span') {
 
-            e = document.createElement("span");
+            e = imscHTML.document.createElement("span");
 			e.style.display = 'inline-flex';
+			e.style.flexDirection = 'row';
 			e.style.whiteSpace = 'pre';
 
         } else if (isd_element.kind === 'br') {
 
-            e = document.createElement("br");
+            e = imscHTML.document.createElement("br");
 
         }
 
@@ -225,7 +235,7 @@
 			if (mra && mra !== "auto") {
 				var p = e;
 				//p.style.flexWrap = 'wrap';
-				e = document.createElement("div");
+				e = imscHTML.document.createElement("div");
 				e.style.display = 'flex';
 				e.style.flexDirection = 'column';
 				var a = 'center';
@@ -268,6 +278,9 @@
 			}
 		}
 
+		// append child before so we can measure from parent
+        dom_parent.appendChild(e);
+
         // wrap characters in spans to find the line wrap locations
         if (isd_element.kind === "span" && isd_element.text) {
 
@@ -290,7 +303,7 @@
 						var word = words[j];
 						if (word.length){
 							spacestring = '';
-							span = document.createElement("span");
+							span = imscHTML.document.createElement("span");
 							span.style.display = 'inline-flex';	
 							span.style.whiteSpace = 'pre';
 							for (spaces = 0; spaces < leadingspaces; spaces++){
@@ -302,8 +315,8 @@
 							}
 
 							word = spacestring+word;
+							e.appendChild(span); // append before to allow parent to be accessed in text setter
 							span.textContent = word;
-							e.appendChild(span);
 							leadingspaces = 0;
 						} else {
 							// if the last word is followed by spaces
@@ -315,11 +328,11 @@
 									spacestring = spacestring + ' ';
 								}
 								// add them as a new span
-								span = document.createElement("span");
+								span = imscHTML.document.createElement("span");
 								span.style.display = 'inline-flex';
-								span.textContent = spacestring;
 								span.style.whiteSpace = 'pre';
-								e.appendChild(span);
+								e.appendChild(span); // append before to allow parent to be accessed in text setter
+								span.textContent = spacestring;
 								leadingspaces = 0;
 							}
 						}
@@ -327,7 +340,7 @@
 					
 					// if not the last, then need to insert a br
 					if (t < texts.length - 1){
-			            var _br = document.createElement("br");
+			            var _br = imscHTML.document.createElement("br");
 						e.appendChild(_br);
 					}
 				}
@@ -337,7 +350,6 @@
 			}
         }
 
-        dom_parent.appendChild(e);
 
 
 		// this processes all children of our element
@@ -674,7 +686,7 @@
 				
 				
 				if (e.localName === 'br'){
-					// lsoe brs
+					// lose brs
 					el.removeChild(e);
 				} else {
 					// strip from children
@@ -727,7 +739,7 @@
 		};
 
 		
-        var mradiv = document.createElement("div");
+        var mradiv = imscHTML.document.createElement("div");
 		mradiv.id = 'multiRowAlignDiv';
 		mradiv.style.display = 'flex'; 
 		mradiv.style.flexDirection = 'column';
@@ -802,7 +814,7 @@
 					headrect = elrect;
 					line_head = i;
 
-					var br = document.createElement("br");
+					var br = imscHTML.document.createElement("br");
 
 					elist[i].element.parentElement.insertBefore(br, elist[i].element);
 
@@ -870,7 +882,7 @@
 		for (i = 0; i < related.length; i++){
 			var grp = related[i];
 			if (grp.length){
-				var span = document.createElement("span");
+				var span = imscHTML.document.createElement("span");
 				span.style.display = 'inline-flex';
 				span.style.whiteSpace = 'pre';
 				grp[0].element.parentElement.insertBefore(span, grp[0].element);
@@ -1291,7 +1303,7 @@
 
                 if (context.imgResolver !== null && attr !== null) {
 
-                    var img = document.createElement("img");
+                    var img = imscHTML.document.createElement("img");
 
                     var uri = context.imgResolver(attr, img);
 
