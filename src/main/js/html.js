@@ -191,6 +191,7 @@
 			e.style.display = 'inline-flex';
 			e.style.flexDirection = 'row';
 			e.style.whiteSpace = 'pre';
+			e.style.lineHeight = 'normal';
 
         } else if (isd_element.kind === 'br') {
 
@@ -257,6 +258,7 @@
 						break;
 				}
 				p.style.justifyContent = a;
+				p.style.alignItems = 'center'; // center contains spans vertically inside
 
 				// set atts onto div as well.
 				for (var _i in STYLING_MAP_DEFS) {
@@ -272,6 +274,11 @@
 				e.appendChild(p);
 				proc_e = p;
 				context.mra = mra;
+			}
+
+					// if it's a fixed size, then it's a fixed size.
+            if (proc_e.style.lineHeight.endsWith("px")){
+				proc_e.style.height = proc_e.style.lineHeight;
 			}
 
 			var lp = isd_element.styleAttrs[imscStyles.byName.linePadding.qname];
@@ -371,6 +378,7 @@
             /* TODO: linePadding only supported for horizontal scripts */
 
 			var lppix = (context.lp)? (context.lp * context.h) : 0;
+			proc_e.style.linePadding = lppix;
 			
 			// set a margin of the required ammount,
 			// so that things wordwrap at the correct place
@@ -591,7 +599,7 @@
 	function getendelements(el, ends){
 		var len;
 		var i;
-
+		
 		len = el.children.length;
 		for (i = len-1; i >= 0; i--){
 			// only process leaves
@@ -742,11 +750,33 @@
 			p.style.whiteSpace = 'nowrap';
 			p.class = 'brline'+i;
 
+			// element to center spans vertically in p
+			var s = imscHTML.document.createElement("span");
+			s.style.display = 'flex';
+			s.style.flexDirection = 'row';
+			s.style.alignItems = 'baseline';
+
 			// strip out anything not in this line
 			stripline(p, i);
 
 			// add words back together
 			combinespans(p);
+
+			// move all children onto s
+			var children = [];
+			for (var c = 0; c < p.children.length; c++){
+				children.push(p.children[c]);
+			}
+			for (c = p.children.length-1; c >= 0; c--){
+				p.removeChild(p.children[c]);
+			}
+			for (c = 0; c < children.length; c++){
+				s.appendChild(children[c]);
+			}
+			
+			// put s in p
+			p.appendChild(s);
+			p.alignItems = 'center';
 
 			// add this new line
 			mradiv.appendChild(p);
@@ -754,7 +784,7 @@
 			// add padding to the first and only child of the new p
 			if (lp){
 				// find leftmost and rightmost elements, and add padding
-				var ends = { leftx:10000, rightx:0, leftel:null, rightel:null };
+				var ends = { leftx:10000, rightx:0, leftel:null, rightel:null, index:0 };
 				getendelements(p, ends);
 				if (ends.leftel){
 					ends.leftel.style.paddingLeft = lp+'px';
