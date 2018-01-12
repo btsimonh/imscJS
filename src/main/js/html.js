@@ -276,10 +276,6 @@
 				context.mra = mra;
 			}
 
-					// if it's a fixed size, then it's a fixed size.
-            if (proc_e.style.lineHeight.endsWith("px")){
-				proc_e.style.height = proc_e.style.lineHeight;
-			}
 
 			var lp = isd_element.styleAttrs[imscStyles.byName.linePadding.qname];
 
@@ -384,8 +380,45 @@
 			// so that things wordwrap at the correct place
 			//proc_e.style.margin = lppix+'px';
 			
-            processLinePaddingAndMultiRowAlign(elist, lppix, proc_e);
+            var plist = processLinePaddingAndMultiRowAlign(elist, lppix, proc_e);
 			//proc_e.style.margin = '0px';
+
+
+			// enforce p height based on content and lineHeight
+			for (var _p = 0; _p < plist.length; _p++){
+				// line height is the minimum.
+				// if it's a fixed size, then it's a fixed size.
+				var ht;
+				
+				if (plist[_p].style.lineHeight.endsWith("px")){
+					ht = parseFloat(plist[_p].style.lineHeight);
+				} else {
+					
+					ht = plist[_p].offsetHeight;
+				}
+				
+				var minht = 0;
+				for (var _c = 0; _c < plist[_p].children.length; _c++){
+					var _child = plist[_p].children[_c];
+					if (minht < _child.offsetHeight){
+						minht = _child.offsetHeight;
+					}
+					for (var _c2 = 0; _c2 < _child.children.length; _c2++){
+						var _child2 = _child.children[_c2];
+						if (minht < _child2.offsetHeight){
+							minht = _child2.offsetHeight;
+						}
+					}
+				}
+				
+				if (ht < minht){
+					ht = minht;
+				}
+				
+				// don't let flexbox squash this futher.
+				plist[_p].style.minHeight = ht+'px';
+			}
+
 
             /* TODO: clean-up the spans ? */
 
@@ -649,6 +682,8 @@
 
     function processLinePaddingAndMultiRowAlign(elist, lp, el) {
 
+		var plist = [];
+		
 		dir = el.style.direction;
 
 		// TODO - check direction
@@ -708,12 +743,16 @@
 			} else {
 				if ((elist[i].element.localName === "span") && (elist[i].element.children.length === 0)){
 					if (linesize[brlinecount] + elist[i].element.offsetWidth > maxwidth-(2*lp)){
+						var linestart = false;
+						if (linesize[brlinecount] === 0){
+							linestart = true;
+						}
 						brlinecount++;
 						brlines[brlinecount] = [];
 						linesize[brlinecount] = 0;
 						
-						// take space off front, only if no space preserve
-						if (!isSpacePreseve){
+						// take space off front, only if no space preserve, and not first span
+						if (!isSpacePreseve && !linestart){
 						    if (elist[i].element.childNodes.length){
 							     var t = elist[i].element.childNodes[0].data;
                                 if (t){
@@ -778,6 +817,7 @@
 			p.appendChild(s);
 			p.alignItems = 'center';
 
+			plist.push(p);
 			// add this new line
 			mradiv.appendChild(p);
 
@@ -797,6 +837,9 @@
 		
 		// remove ourselves
 		el.parentElement.removeChild(el);
+		
+		// listy of ops we created instead of the one passed in
+		return plist;
     }
 	
 
