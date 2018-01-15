@@ -718,10 +718,10 @@
 		
 		var maxwidth = 1024;
 		if (wparent){
-			console.log("parent width" + wparent.style.width);
+//			console.log("parent width" + wparent.style.width);
 			maxwidth = parseFloat(wparent.style.width);
 		} else {
-			console.log("no width on parent");
+//			console.log("no width on parent");
 		}
 		
 		// gather spans between <br/>
