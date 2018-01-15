@@ -335,8 +335,15 @@
 
                     } else {
 
+						// change to error - will be ignored
                         reportFatal(errorHandler, "Parent of <style> element is not <styling> or <region> at (" + this.line + "," + this.column + ")");
-
+                        //reportFatal(errorHandler, "Parent of <style> element is not <styling> or <region> at (" + this.line + "," + this.column + ")");
+						 
+						// in case we don't abort processing... shove the style to ignore in here, else closetag will not work.
+						// this will only happen if we did not throw above
+                        s = new Style();
+                        s.initFromNode(node, errorHandler);
+                        estack.unshift(s);
                     }
 
                 } else if (node.local === 'layout') {
@@ -620,6 +627,8 @@
         this.effectiveFrameRate = frtr.effectiveFrameRate;
 
         this.tickRate = frtr.tickRate;
+		
+		this.dropMode = frtr.dropMode;
 
         /* extract aspect ratio */
 
@@ -629,7 +638,8 @@
 
         var attr = findAttribute(node, imscNames.ns_ttp, "timeBase");
 
-        if (attr !== null && attr !== "media") {
+		// allow smpte as well...
+        if (attr !== null && attr !== "media" && attr !== "smpte") {
 
             reportFatal(errorHandler, "Unsupported time base");
 
@@ -1207,7 +1217,45 @@
 
         }
 
-        return {effectiveFrameRate: efps, tickRate: tr};
+
+        var attr = findAttribute(node, imscNames.ns_ttp, "timeBase");
+
+		var dropMode = null;
+        if (attr === "smpte") {
+			// default to set dropMode to control TC extract.
+			dropMode = 'nonDrop';
+		}
+
+        var drattr = findAttribute(node, imscNames.ns_ttp, "dropMode");
+
+		// allow smpte as well...
+        if (drattr !== null && drattr !== "nonDrop" && drattr !== "dropNTSC" && drattr !== "dropPAL") {
+            reportFatal(errorHandler, "Unsupported time dropMode "+drattr);
+        }
+		if (drattr !== null){
+			dropMode = drattr;
+		}
+		
+		
+		var dropFrames = 0;
+		switch(dropMode){
+			default:
+				dropFrames = 0;
+				break;
+			case 'dropNTSC':
+				if (Math.round(efps) !== 30){
+		            reportError(errorHandler, "Incompatible dropMode ("+dropMode+") and FPS ("+efps+")");
+				}
+				break;
+			case 'dropPAL':
+				if (Math.round(efps) !== 25){
+		            reportError(errorHandler, "Incompatible dropMode ("+dropMode+") and FPS ("+efps+")");
+				}
+				break;
+		}
+
+
+        return {effectiveFrameRate: efps, tickRate: tr, dropMode:dropMode};
 
     }
 
@@ -1241,7 +1289,36 @@
 
     }
 
-    function parseTimeExpression(tickRate, effectiveFrameRate, str) {
+
+	function getDropFrameSeconds(m, effectiveFrameRate, dropMode){
+        var f = 0;
+		var hh = parseInt(m[1]);
+        f = f + hh;
+        f = f * 60;
+		var mm = parseInt(m[2]);
+        f = f + mm;
+        f = f * 60;
+        f = f + parseInt(m[3]);
+        f = f * Math.round(effectiveFrameRate);
+        f = f + (m[4] === null ? 0 : parseInt(m[4]));
+        
+		switch(dropMode){
+			case 'dropNTSC':
+				f = f - ((hh * 54 + (mm - Math.floor(mm/10))) * 2);
+				break;
+			case 'dropPAL':
+				f = f - ((hh * 27 + (Math.floor(mm/2) - Math.floor(mm/20))) * 4);
+				break;
+			default:
+				break;
+		}
+		
+		var seconds = f/effectiveFrameRate;
+        return seconds;
+	}
+
+
+    function parseTimeExpression(tickRate, effectiveFrameRate, dropMode, str) {
 
         var CLOCK_TIME_FRACTION_RE = /^(\d{2,}):(\d\d):(\d\d(?:\.\d+)?)$/;
         var CLOCK_TIME_FRAMES_RE = /^(\d{2,}):(\d\d):(\d\d)\:(\d{2,})$/;
@@ -1292,13 +1369,16 @@
         } else if ((m = CLOCK_TIME_FRAMES_RE.exec(str)) !== null) {
 
             /* this assumes that HH:MM:SS is a clock-time-with-fraction */
-
+			/* unless dropMode is set, in which case smpte values apply */
             if (effectiveFrameRate !== null) {
-
-                r = parseInt(m[1]) * 3600 +
-                    parseInt(m[2]) * 60 +
-                    parseInt(m[3]) +
-                    (m[4] === null ? 0 : parseInt(m[4]) / effectiveFrameRate);
+				if (dropMode){
+					r = getDropFrameSeconds(m, effectiveFrameRate, dropMode);
+				} else {
+					r = parseInt(m[1]) * 3600 +
+					    parseInt(m[2]) * 60 +
+					    parseInt(m[3]) +
+					   (m[4] === null ? 0 : parseInt(m[4]) / effectiveFrameRate);
+			    }
             }
 
         }
@@ -1319,7 +1399,7 @@
 
         if (node && 'begin' in node.attributes) {
 
-            b = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, node.attributes.begin.value);
+            b = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, doc.dropMode, node.attributes.begin.value);
 
             if (b === null) {
 
@@ -1339,7 +1419,7 @@
 
         if (node && 'dur' in node.attributes) {
 
-            d = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, node.attributes.dur.value);
+            d = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, doc.dropMode, node.attributes.dur.value);
 
             if (d === null) {
 
@@ -1355,7 +1435,7 @@
 
         if (node && 'end' in node.attributes) {
 
-            e = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, node.attributes.end.value);
+            e = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, doc.dropMode, node.attributes.end.value);
 
             if (e === null) {
 
