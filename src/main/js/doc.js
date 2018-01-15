@@ -256,7 +256,7 @@
 
                     if (doc !== null) {
 
-                        reportFatal("Two <tt> elements at (" + this.line + "," + this.column + ")");
+                        reportFatal(errorHandler, "Two <tt> elements at (" + this.line + "," + this.column + ")");
 
                     }
 
@@ -269,11 +269,11 @@
                 } else if (node.local === 'head') {
 
                     if (!(estack[0] instanceof TT)) {
-                        reportFatal("Parent of <head> element is not <tt> at (" + this.line + "," + this.column + ")");
+                        reportFatal(errorHandler, "Parent of <head> element is not <tt> at (" + this.line + "," + this.column + ")");
                     }
 
                     if (doc.head !== null) {
-                        reportFatal("Second <head> element at (" + this.line + "," + this.column + ")");
+                        reportFatal(errorHandler, "Second <head> element at (" + this.line + "," + this.column + ")");
                     }
 
                     doc.head = new Head();
@@ -283,11 +283,11 @@
                 } else if (node.local === 'styling') {
 
                     if (!(estack[0] instanceof Head)) {
-                        reportFatal("Parent of <styling> element is not <head> at (" + this.line + "," + this.column + ")");
+                        reportFatal(errorHandler, "Parent of <styling> element is not <head> at (" + this.line + "," + this.column + ")");
                     }
 
                     if (doc.head.styling !== null) {
-                        reportFatal("Second <styling> element at (" + this.line + "," + this.column + ")");
+                        reportFatal(errorHandler, "Second <styling> element at (" + this.line + "," + this.column + ")");
                     }
 
                     doc.head.styling = new Styling();
@@ -308,7 +308,7 @@
 
                         if (!s.id) {
 
-                            reportError("<style> element missing @id attribute");
+                            reportError(errorHandler, "<style> element missing @id attribute");
 
                         } else {
 
