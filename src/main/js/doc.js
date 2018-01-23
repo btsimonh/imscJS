@@ -816,11 +816,40 @@
     };
 
 
-    TT.prototype.timedElements = function (time) {
+    TT.prototype.timedElements = function (time, previndex) {
+		var begin = -1;
+		var end = -1;
+		var index = -1;
+		
+		// allow fast no-search accss if we know the next index we want
+		if (previndex >= 0){
+			if (previndex < this.events.length - 1){
+				index = previndex + 1;
+				if (time === this.events[index]){
+					begin = this.events[index];
+					end = Number.POSITIVE_INFINITY;
+					if (index < this.events.length -1){
+						end = this.events[previndex+1];
+					}
+					return { begin: begin, end: end, index: index, active: this.eventsextracalc[index].active };
+				}
+			}
+		}
 
+		// if no or invalid previousindex, search
         var data = indexOf(this.events, time);
-		if (this.eventsextracalc && data.found)
-			return this.eventsextracalc[data.index];
+		if (data.found){
+			begin = this.events[data.index];
+			end = Number.POSITIVE_INFINITY;
+			index = data.index;
+			if (index < this.events.length -1){
+				end = this.events[index+1];
+			}
+			return { begin: begin, end: end, index: index, active: this.eventsextracalc[index].active };
+		}
+		
+		// if not found, return none
+		return { begin: begin, end: end, index: index, active: [] };
     };
 
 
@@ -1788,6 +1817,8 @@
 
         return {found: false, index: min};
     }
+
+
 
 
 })(typeof exports === 'undefined' ? this.imscDoc = {} : exports,
