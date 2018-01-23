@@ -180,11 +180,32 @@
 
                 /* create an anonymous span */
                 
-                var s = new AnonymousSpan();
-              
-                s.initFromText(doc, estack[0], str, xmlspacestack[0], errorHandler);
+				// but only if space preserve and some content.
+				// this should limit the number of anon spans where timing is in spans, and
+				// the anon span would be 0-Infinity
+				if (xmlspacestack[0] === 'default'){
+					// trim only whitespace only nodes, only if they include linefeed or are empty
+					// else replace them with single space
+					if (str.length){
+						var str1 = str.trim();
+						if (str1.length === 0){
+							if (str.indexOf('\n') < 0){
+								str = ' ';
+							}
+						}
+					}
+				}
+				
+				if (str.length){
+					var s = new AnonymousSpan();
 
-                estack[0].contents.push(s);
+					s.initFromText(doc, estack[0], str, xmlspacestack[0], errorHandler);
+					// it still has a time - just that it will be derrived from the parent.
+					// but if only timing on spans, this Anon span will be 0-Infinity!!!
+					doc._registerEvent(s);
+
+					estack[0].contents.push(s);
+				}
 
             } else if (estack[0] instanceof ForeignElement &&
                 metadata_depth > 0 &&
@@ -610,9 +631,33 @@
 
     function TT() {
         this.events = [];
+        this.eventsextra = [];
+        this.eventsextracalc = undefined;
         this.head = null;
         this.body = null;
+		
+		// unique number for every element found, in order
+		this.order = 1;
     }
+
+    TT.prototype.clone = function () {
+		var newtt = new TT();
+        newtt.events = this.events;
+        newtt.eventsextra = this.eventsextra;
+        newtt.eventsextracalc = this.eventsextracalc;
+        newtt.head = this.head;
+        newtt.body = this.body;
+		
+		newtt.aspectRatio  = this.aspectRatio;
+		newtt.cellResolution  = this.cellResolution;
+		newtt.pxDimensions  = this.pxDimensions;
+		newtt.dropMode  = this.dropMode;
+		newtt.effectiveFrameRate  = this.effectiveFrameRate;
+		newtt.tickRate  = this.tickRate;
+		
+		return newtt;
+	};
+
 
     TT.prototype.initFromNode = function (node, errorHandler) {
 
@@ -669,6 +714,9 @@
     /* register a temporal events */
     TT.prototype._registerEvent = function (elem) {
 
+		// record the order elements found in
+		elem.order = this.order++;
+		
         /* skip if begin is not < then end */
 
         if (elem.end <= elem.begin) return;
@@ -676,10 +724,27 @@
         /* index the begin time of the event */
 
         var b_i = indexOf(this.events, elem.begin);
+		var elems;
+
+
+		/* Use a stack of active elements - may have to assume we see time order? */
+
 
         if (!b_i.found) {
             this.events.splice(b_i.index, 0, elem.begin);
-        }
+			elems = { active:[] };
+			if (1 || elem.timespecified){
+				elems.active.push(elem);
+			}
+            this.eventsextra.splice(b_i.index, 0, elems);
+        } else {
+			elems = this.eventsextra[b_i.index];
+			if (1 || elem.timespecified){
+				if (elems.active.indexOf(elem) < 0){
+					elems.active.push(elem);
+				}
+			}
+		}
 
         /* index the end time of the event */
 
@@ -689,13 +754,45 @@
 
             if (!e_i.found) {
                 this.events.splice(e_i.index, 0, elem.end);
+				elems = { active:[] };
+				this.eventsextra.splice(e_i.index, 0, elems);
             }
-
         }
 
     };
 
+	TT.prototype.enhanceextra = function(){
+		if (!this.eventsextracalc){
+			var stack = [];
 
+			this.eventsextracalc = [];
+			for (var i = 0; i < this.events.length; i++){
+				var time = this.events[i];
+				var extra = this.eventsextra[i];
+				// all events 
+				for (var j = 0; j < extra.active.length; j++){
+					// only keep those which had a real time, or contain text
+					// this deals with anon spans with text which last forever.
+					if (/*extra.active[j].timespecified || */extra.active[j].text || !extra.active[j].contents){
+						stack.push(extra.active[j]);
+					}
+				}
+
+				var extracalc = {begin:time, active:[]};
+				this.eventsextracalc.push(extracalc);
+
+				for (var s = stack.length-1; s >= 0; s--){
+					// if no longer in this element
+					if (stack[s].end <= time){
+						stack.splice(s, 1);
+					} else {
+						extracalc.active.push(stack[s]);
+					}
+				}
+			}
+		}
+	};
+		
     /*
      * Retrieves the range of ISD times covered by the document
      * 
@@ -713,9 +810,19 @@
      * @returns {Array}
      */
     TT.prototype.getMediaTimeEvents = function () {
+		this.enhanceextra();
 
         return this.events;
     };
+
+
+    TT.prototype.timedElements = function (time) {
+
+        var data = indexOf(this.events, time);
+		if (this.eventsextracalc && data.found)
+			return this.eventsextracalc[data.index];
+    };
+
 
     /*
      * Represents a TTML Head element
@@ -774,11 +881,59 @@
         this.timeContainer = null;
     }
 
+    ContentElement.prototype.clone = function ( deep ) {
+		var newel = null;
+		switch(this.kind){
+			case 'body':
+				newel = new Body( );
+				break;
+			case 'div':
+				newel = new Div( );
+				break;
+			case 'p':
+				newel = new P( );
+				break;
+			case 'span':
+				newel = new Span( );
+				break;
+			case 'br':
+				newel = new Br( );
+				break;
+			default:
+				console.log("unknown element "+this.kind);
+				newel = new ContentElement( this.kind );
+				break;
+		}
+		// note - the below are references.
+		for (var x in this){
+			newel[x] = this[x];
+		}
+
+		if (undefined === this.contents){
+			delete newel.contents;
+		} else {
+			newel.contents = [];
+			if (deep){
+				// note REFERENCES!!!!
+				newel.contents = this.contents;
+				newel.contentsareref = true;
+			} else {
+				newel.contents = [];
+			}
+		}
+		
+		return newel;
+	};
+
+
     ContentElement.prototype.initFromNode = function (doc, parent, node, errorHandler) {
+		Object.getPrototypeOf(this).clone = ContentElement.prototype.clone;
 
         var t = processTiming(doc, parent, node, errorHandler);
+		this.parent = parent;
         this.begin = t.begin;
         this.end = t.end;
+        this.timespecified = t.timespecified;
 
         this.styleAttrs = elementGetStyles(node, errorHandler);
 
@@ -882,6 +1037,7 @@
      */
 
     function Region() {
+		this.kind = 'region';
         this.id = null;
         this.begin = null;
         this.end = null;
@@ -1393,12 +1549,14 @@
 
         var isseq = parent && parent.timeContainer === "seq";
 
+		var timespecified = false;
+
         /* retrieve begin value */
 
         var b = 0;
 
         if (node && 'begin' in node.attributes) {
-
+			timespecified = true;
             b = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, doc.dropMode, node.attributes.begin.value);
 
             if (b === null) {
@@ -1418,6 +1576,7 @@
         var d = isseq ? 0 : null;
 
         if (node && 'dur' in node.attributes) {
+			timespecified = true;
 
             d = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, doc.dropMode, node.attributes.dur.value);
 
@@ -1434,6 +1593,7 @@
         var e = null;
 
         if (node && 'end' in node.attributes) {
+			timespecified = true;
 
             e = parseTimeExpression(doc.tickRate, doc.effectiveFrameRate, doc.dropMode, node.attributes.end.value);
 
@@ -1495,7 +1655,7 @@
 
         }
 
-        return {begin: b, end: e};
+        return {begin: b, end: e, timespecified: timespecified};
 
     }
 
