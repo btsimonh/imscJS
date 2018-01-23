@@ -661,7 +661,7 @@
 		// if it's a span
 		if (el.localName === 'span'){
 			// only interested if more than one
-			if (el.children.length > 1){
+			if (el.children.length > 0){
 				if (el.children[0].childNodes.length > 0){
 					// only interested if text content
 					if (el.children[0].childNodes[0].data && el.children[0].childNodes[0].data.length){
@@ -670,10 +670,16 @@
 						for (var i = 0; i < el.children.length; i++){
 							text = text + el.children[i].childNodes[0].data; // spaces already included
 						}
-						el.children[0].childNodes[0].data = text;
-						for (i = el.children.length-1; i > 0 ; i--){
+						
+
+						// squash it all into the parent
+						//el.children[0].childNodes[0].data = text;
+						el.textContent = text;
+						
+						for (i = el.children.length-1; i >= 0 ; i--){
 							el.removeChild(el.children[i]);
 						}
+						
 					}
 				}
 			}
