@@ -188,7 +188,11 @@
         } else if (isd_element.kind === 'span') {
 
             e = imscHTML.document.createElement("span");
-			e.style.display = 'inline-flex';
+			if (isd_element.contents && (isd_element.contents.length > 0))
+				e.style.display = 'inline-flex';
+			else 
+				e.style.display = 'inline';
+				
 			e.style.flexDirection = 'row';
 			e.style.whiteSpace = 'pre';
 			e.style.lineHeight = 'normal';
