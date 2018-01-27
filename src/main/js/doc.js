@@ -1422,19 +1422,13 @@
 		}
 		
 		
-		var dropFrames = 0;
 		switch(dropMode){
 			default:
-				dropFrames = 0;
 				break;
 			case 'dropNTSC':
-				if (Math.round(efps) !== 30){
-		            reportError(errorHandler, "Incompatible dropMode ("+dropMode+") and FPS ("+efps+")");
-				}
-				break;
 			case 'dropPAL':
-				if (Math.round(efps) !== 25){
-		            reportError(errorHandler, "Incompatible dropMode ("+dropMode+") and FPS ("+efps+")");
+				if (Math.round(efps) !== 30){
+		            reportWarning(errorHandler, "Strange to have dropMode ("+dropMode+") and FPS ("+efps+")");
 				}
 				break;
 		}
