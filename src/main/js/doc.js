@@ -354,6 +354,40 @@
 
                         estack.unshift(s);
 
+                    } else if (estack[0] instanceof P) {
+
+                        /* nested styles can be merged with specified styles
+                         * immediately, with lower priority
+                         * (see 8.4.4.2(3) at TTML1 )
+                         */
+
+                        reportError(errorHandler, "style element in P at (" + this.line + "," + this.column + ")");
+
+                        s = new Style();
+
+                        s.initFromNode(node, errorHandler);
+
+                        mergeStylesIfNotPresent(s.styleAttrs, estack[0].styleAttrs);
+
+                        estack.unshift(s);
+
+                    } else if (estack[0] instanceof Span) {
+
+                        /* nested styles can be merged with specified styles
+                         * immediately, with lower priority
+                         * (see 8.4.4.2(3) at TTML1 )
+                         */
+
+                        reportError(errorHandler, "style element in Span at (" + this.line + "," + this.column + ")");
+
+                        s = new Style();
+
+                        s.initFromNode(node, errorHandler);
+
+                        mergeStylesIfNotPresent(s.styleAttrs, estack[0].styleAttrs);
+
+                        estack.unshift(s);
+
                     } else {
 
 						// change to error - will be ignored
